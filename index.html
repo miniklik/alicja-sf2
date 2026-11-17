@@ -380,7 +380,7 @@
       <p class="autor">Instrument do grania w przeglądarce. Pomysł i projekt: <b>Piotr Przebiorowski</b>.</p>
       <p>Alicja SF2 ma cztery szufladki. Do każdej wkładasz inny dźwięk i grasz nimi naraz. Każdą szufladkę można wyciszyć, przesunąć o oktawę albo ustawić tak, żeby grała tylko na lewej lub tylko na prawej stronie klawiatury (podział na c¹).</p>
       <h4>DŹWIĘKI: BANKI SF2</h4>
-      <p>Alicja SF2 nie ma barw w środku — gra bankami SF2: tymi z „Alicja Sampler SF2” i każdymi innymi. <b>📂 WCZYTAJ SF2</b> — bank pojawia się na liście z lewej, kliknięty pokazuje swoje barwy. Kliknięta barwa gra próbkę, przeciągnięta do szufladki — gra na klawiaturze. Wczytane banki przeglądarka pamięta.</p>
+      <p>Alicja SF2 nie ma barw w środku — gra bankami SF2: tymi z „Alicja Sampler SF2” i każdymi innymi. <b>📂 WCZYTAJ SF2</b> — bank pojawia się na liście z lewej, kliknięty pokazuje swoje barwy. Kliknięta barwa gra próbkę, przeciągnięta do szufladki — gra na klawiaturze. Dwuklik na barwie wkłada ją do najbliższej wolnej szufladki. Wczytane banki przeglądarka pamięta.</p>
       <h4>ODTWARZACZ</h4>
       <p>Wczytaj utwór MIDI i graj go szufladkami albo całym bankiem (16 MIDI). <b>WAV</b> i <b>MP3</b> zgrywają utwór do pliku — tak, jak słychać: barwy, Aura, Wysokość. Liczy się szybciej, niż gra.
         W panelu Aura: <b>IR Alicji</b> — prawdziwe nagranie sali „Alicja”; <b>Wczytaj IR</b> — własna sala (nagranie trzasku w kościele, w studiu…), ✕ ją usuwa. Oba zgaszone — pogłos programu.
@@ -762,11 +762,18 @@ function rysujDzwieki(){
   { const L = $("listaBrz"), w = L.querySelector(".wyb");   // wybrana pozycja zawsze widoczna (lista jest dłuższa niż okienko)
     if (w) { if (w.offsetTop < L.scrollTop) L.scrollTop = w.offsetTop; else if (w.offsetTop + w.offsetHeight > L.scrollTop + L.clientHeight) L.scrollTop = w.offsetTop + w.offsetHeight - L.clientHeight; } }
   $("listaBrz").querySelectorAll("div[data-i]").forEach(d => {
-    d.onclick = () => { dzwNr = +d.dataset.i; rysujDzwieki(); pokazNazwe(); probka(); };
+    d.onclick = () => { const i = +d.dataset.i, t = performance.now(), dw = ostKlik.i === i && ostKlik.kat === katNr && t - ostKlik.t < 350;
+      ostKlik = { i, kat: katNr, t: dw ? 0 : t }; dzwNr = i; rysujDzwieki(); pokazNazwe();
+      if (dw && k.dzwieki[i].typ !== 'moja') doWolnej(k.dzwieki[i]); else probka(); };
     if (k.dzwieki[+d.dataset.i].typ === 'moja') d.ondblclick = () => wczytajBarwe(k.dzwieki[+d.dataset.i].dane);
     d.ondragstart = e => { e.dataTransfer.setData("text/plain", katNr + ":" + d.dataset.i); e.dataTransfer.effectAllowed = "copy"; };
   });
 }
+// dwuklik na barwie: sama idzie do najbliższej wolnej szufladki (jak we wtyczce VST3). Liczę go sam (jak wtyczka),
+// bo pierwszy klik rysuje listę od nowa i przeglądarka gubi zwykły „dblclick”.
+let ostKlik = { i: -1, kat: -1, t: 0 };
+function doWolnej(dz) { const wolna = szuflady.find(s => !s.dzwiek);
+  if (wolna) wolna.wloz(dz); else status('Wszystkie szufladki są zajęte — opróżnij jedną (✕) albo przeciągnij barwę na zajętą.'); }
 function pokazNazwe(){
   const k = KATEGORIE[katNr], d = k.dzwieki[dzwNr];
   $("nazwaEkran").textContent = d ? d.nazwa : "—"; $("nazwaGora").textContent = d ? d.nazwa : "—"; $("katGora").textContent = k.skrot;
@@ -1150,7 +1157,8 @@ for (let i = 0; i < 4; i++) {
     const [k, d] = (e.dataTransfer.getData("text/plain") || "").split(":").map(Number); let dz = KATEGORIE[k] && KATEGORIE[k].dzwieki[d];
     if (!dz) { status(`Szufladka ${i + 1}: tu można upuścić tylko dźwięk z listy na ekranie.`); return; }
     if (dz.typ === 'moja') { status(`„Moja barwa” to cały zestaw szufladek — wczytaj ją <b>dwuklikiem</b> na liście.`); return; }
-    oproznij(s); s.dzwiek = dz; s.wlaczona = true; startAudio(); zbuduj(s); s.odswiez(); wybierzSzufladke(i);
+    s.wloz(dz); };
+  s.wloz = dz => { oproznij(s); s.dzwiek = dz; s.wlaczona = true; startAudio(); zbuduj(s); s.odswiez(); wybierzSzufladke(i);
     status(`Szufladka ${i + 1}: <b>${esc(dz.nazwa)}</b>`); };
   x.onclick = () => { oproznij(s); m.textContent = "przeciągnij tu dźwięk"; m.classList.remove("pelna"); x.style.display = "none"; wl.classList.remove("on"); };
   wl.onclick = () => { if (!s.dzwiek) return; s.wlaczona = !s.wlaczona; wl.classList.toggle("on", s.wlaczona); ustawGlosnosc(s); };
